@@ -1,1 +1,0 @@
-# daves-collegefootball-scores
