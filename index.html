@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+  <!--If you like this scoreboard, you can host it easily for free using GitHub or Azure Static Apps.  For more information, see dave.herrell.com for directions.-->
+  <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dave's Live College Football Scores</title>
+  <style>
+    :root{
+      --bg: #379f14;
+      --card: #121820;
+      --muted: #8ea0b5;
+      --text: #e7eef7;
+      --accent: #2ea3ff;
+      --border: #1f2a36;
+      --live: #ff5d5d;
+      --final: #2bd576;
+      --sched: #7b8a9b;
+      --radius: 12px;
+      --shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+
+    html,body{height:100%}
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 700px at 20% -10%, #111826 0%, #696c68 60%) fixed;
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.35;
+    }
+
+    .wrap{max-width:1600px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+    .header{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:10px;padding:10px 12px;border:1px solid var(--border);
+      background:linear-gradient(180deg, #0f141b 0%, #0d1218 100%);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+    }
+    .title{font-size:18px;font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+    .subtitle{font-size:12px;color:var(--muted)}
+
+    .toolbar{display:flex;align-items:center;gap:10px}
+    .chip{
+      font-size:11px;font-weight:600;color:#0b0f14;background:#d4ecff;
+      padding:6px 8px;border-radius:999px;border:0;opacity:.9;white-space:nowrap
+    }
+    .stamp{font-size:12px;color:var(--muted);white-space:nowrap}
+
+    .search{
+      position:relative;display:flex;align-items:center;gap:6px
+    }
+    #searchBox{
+      width:240px;max-width:46vw;
+      padding:6px 28px 6px 30px;font-size:12px;border-radius:8px;
+      border:1px solid var(--border);background:#0f141b;color:var(--text);
+      outline:none
+    }
+    .search svg{position:absolute;left:8px;width:14px;height:14px;opacity:.6}
+    .clear-btn{
+      position:absolute;right:6px;border:0;background:transparent;color:var(--muted);
+      font-size:16px;line-height:1;cursor:pointer;padding:2px;border-radius:6px
+    }
+    .clear-btn:hover{color:#c9d6e6}
+
+    .games{
+      display:grid;gap:10px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+
+    .card{
+      background: var(--card);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:10px;
+      display:flex;flex-direction:column;gap:8px;
+      transition: transform .15s ease, border-color .15s ease;
+    }
+    .card:hover{transform:translateY(-2px);border-color:#2a3746}
+
+    .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .status{
+      font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;
+      padding:4px 8px;border-radius:999px;border:1px solid var(--border);width:max-content
+    }
+    .status.live{color:#fff;background:rgba(255,93,93,.15);border-color:rgba(255,93,93,.35);box-shadow:0 0 0 2px rgba(255,93,93,.08) inset}
+    .status.final{color:#d8ffe8;background:rgba(43,213,118,.1);border-color:rgba(43,213,118,.35)}
+    .status.scheduled{color:#d2dae4;background:rgba(123,138,155,.12);border-color:rgba(123,138,155,.35)}
+
+    .teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}
+    .team{min-width:0}
+    .name{
+      font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#eaf2fc
+    }
+    .score{font-size:20px;font-weight:900;line-height:1}
+    .at{font-size:11px;color:var(--muted);font-weight:700;padding:0 4px}
+
+    .meta{
+      font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:6px
+    }
+    .venue{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%}
+
+    .loading,.error,.empty{
+      text-align:center;padding:30px;border:1px dashed var(--border);border-radius:var(--radius);color:var(--muted)
+    }
+    .error{color:#ffb2b2;border-style:solid;background:rgba(255,93,93,.06)}
+
+    @media (max-width:640px){
+      .title{font-size:16px}
+      .games{grid-template-columns: 1fr}
+      #searchBox{width:180px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="header">
+      <div>
+        <div class="title">🏈 Dave's Live College Football Scores</div>
+        <div class="subtitle">Created by Dave Herrell — daveherrell.com</div>
+      </div>
+      <div class="toolbar">
+        <span class="chip">Auto refresh</span>
+
+        <!-- Search -->
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.471 6.471 0 0 0 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+          </svg>
+          <input type="text" id="searchBox" placeholder="Search team, venue, or network…">
+          <button class="clear-btn" id="clearBtn" title="Clear">×</button>
+        </div>
+
+        <span class="stamp" id="lastUpdated">Loading…</span>
+      </div>
+    </header>
+
+    <main id="content">
+      <div class="loading">Loading live scores…</div>
+    </main>
+  </div>
+
+  <script>
+    const REFRESH_INTERVAL = 30000; // 30s
+    const API_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard';
+    let lastUpdateTime = 0;
+    let allEvents = [];
+
+    async function fetchScores(){
+      const res = await fetch(API_URL, { cache: "no-store" });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function tFormat(dateString){
+      const d = new Date(dateString);
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function statusFor(competition){
+      const s = competition.status;
+      if (s.type.completed) return { text:'Final', cls:'final' };
+      if (s.type.name === 'STATUS_HALFTIME') return { text:'Halftime', cls:'live' };
+      if (s.type.name === 'STATUS_IN_PROGRESS'){
+        const p = s.period <= 4 ? `${s.period}Q` : 'OT';
+        return { text:`${p} ${s.displayClock}`, cls:'live' };
+      }
+      return { text: tFormat(competition.date), cls:'scheduled' };
+    }
+
+    function teamBlock(team){
+      const nm = team.team?.shortDisplayName || team.team?.displayName || team.team?.name || '—';
+      const score = team.score ?? '0';
+      return `
+        <div class="team">
+          <div class="name" title="${team.team?.displayName || nm}">${nm}</div>
+          <div class="score">${score}</div>
+        </div>
+      `;
+    }
+
+    function renderList(events){
+      if(!events?.length){
+        return `<div class="empty">No games match your search.</div>`;
+      }
+      return `<section class="games">${
+        events.map(evt=>{
+          const comp = evt.competitions?.[0]; if(!comp) return '';
+          const home = comp.competitors.find(c=>c.homeAway==='home') || {};
+          const away = comp.competitors.find(c=>c.homeAway==='away') || {};
+          const st = statusFor(comp);
+          const venue = comp.venue?.fullName || '';
+          const broadcast = comp.broadcasts?.[0]?.names?.[0] || '';
+          return `
+            <article class="card">
+              <div class="row">
+                <span class="status ${st.cls}">${st.text}</span>
+                ${broadcast ? `<span class="subtitle" style="font-size:11px;color:var(--muted)">${broadcast}</span>` : ''}
+              </div>
+              <div class="teams">
+                ${teamBlock(away)}
+                <div class="at">@</div>
+                ${teamBlock(home)}
+              </div>
+              <div class="meta">
+                ${venue ? `<span class="venue" title="${venue}">${venue}</span>` : '<span></span>'}
+                ${evt.status?.type?.shortDetail ? `<span>${evt.status.type.shortDetail}</span>` : ''}
+              </div>
+            </article>
+          `;
+        }).join('')
+      }</section>`;
+    }
+
+    function applyFilter(){
+      const term = (document.getElementById('searchBox').value || '').trim().toLowerCase();
+      const mount = document.getElementById('content');
+
+      if(!term){
+        mount.innerHTML = renderList(allEvents);
+        return;
+      }
+
+      const filtered = allEvents.filter(evt=>{
+        const comp = evt.competitions?.[0]; if(!comp) return false;
+        const home = comp.competitors.find(c=>c.homeAway==='home') || {};
+        const away = comp.competitors.find(c=>c.homeAway==='away') || {};
+        const venue = comp.venue?.fullName || '';
+        const network = comp.broadcasts?.[0]?.names?.[0] || '';
+        const bits = [
+          home.team?.displayName, home.team?.shortDisplayName, home.team?.abbreviation,
+          away.team?.displayName, away.team?.shortDisplayName, away.team?.abbreviation,
+          venue, network
+        ].filter(Boolean).join(' ').toLowerCase();
+        return bits.includes(term);
+      });
+
+      mount.innerHTML = renderList(filtered);
+    }
+
+    function tickStamp(){
+      const el = document.getElementById('lastUpdated');
+      const d = new Date();
+      el.textContent = `Updated ${d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'})}`;
+    }
+
+    async function update(){
+      try{
+        const data = await fetchScores();
+        allEvents = data?.events || [];
+        document.getElementById('content').innerHTML = renderList(allEvents);
+        applyFilter(); // re-apply on new data
+        tickStamp();
+        lastUpdateTime = Date.now();
+      }catch(err){
+        console.error(err);
+        document.getElementById('content').innerHTML =
+          `<div class="error">⚠️ Failed to load scores. Please check your connection and try again.</div>`;
+      }
+    }
+
+    function initSearch(){
+      const input = document.getElementById('searchBox');
+      const clearBtn = document.getElementById('clearBtn');
+
+      // Prefill from ?q=
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q');
+      if(q){ input.value = q; }
+
+      // Live filter as you type
+      input.addEventListener('input', applyFilter);
+
+      // Clear
+      clearBtn.addEventListener('click', ()=>{
+        input.value = '';
+        input.focus();
+        applyFilter();
+        // remove ?q= from URL without reload
+        if (params.has('q')) {
+          params.delete('q');
+          history.replaceState({}, '', `${location.pathname}${params.toString() ? `?${params}` : ''}`);
+        }
+      });
+
+      // Press "/" to focus search
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === '/' && !/input|textarea/i.test(document.activeElement.tagName)){
+          e.preventDefault();
+          input.focus();
+        }
+      });
+
+      // Update URL as you type (debounced)
+      let t;
+      input.addEventListener('input', ()=>{
+        clearTimeout(t);
+        t = setTimeout(()=>{
+          const p = new URLSearchParams(location.search);
+          if(input.value.trim()){
+            p.set('q', input.value.trim());
+          }else{
+            p.delete('q');
+          }
+          history.replaceState({}, '', `${location.pathname}${p.toString() ? `?${p}` : ''}`);
+        }, 250);
+      });
+    }
+
+    async function init(){
+      initSearch();
+      await update();
+      setInterval(()=>{
+        // only refresh if tab visible
+        if(!document.hidden && Date.now() - lastUpdateTime >= REFRESH_INTERVAL){
+          update();
+        }
+      }, 1000);
+      document.addEventListener('visibilitychange', ()=>{
+        if(!document.hidden && Date.now() - lastUpdateTime > REFRESH_INTERVAL) update();
+      });
+    }
+    addEventListener('load', init);
+  </script>
+</body>
+</html>
