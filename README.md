@@ -64,4 +64,3 @@ npx serve .
 Issues and PRs are welcome!  
 - Open an **Issue** for bugs or feature suggestions.  
 - For PRs, please keep changes small and clearly described.
-
